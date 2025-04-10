@@ -378,14 +378,34 @@ export async function exportToJoplin(
 ): Promise<void> {
   let notebookId = options.notebookId;
   
-  // Create a notebook if name specified and ID not provided
+  // Find or create a notebook if name specified and ID not provided
   if (!notebookId && options.notebookName) {
-    console.log(`Creating notebook: ${options.notebookName}`);
-    const response = await joplin.post(['folders'], null, { title: options.notebookName });
-    console.log(`Notebook creation response:`, response);
-    if (response && response.id) {
-      notebookId = response.id;
-      console.log(`Created notebook with ID: ${notebookId}`);
+    console.log(`Looking for notebook: ${options.notebookName}`);
+    
+    // First, try to find the notebook by name
+    const folders = await joplin.get(['folders']);
+    console.log(`Found ${folders.items.length} folders`);
+    
+    let foundFolder = null;
+    for (const folder of folders.items) {
+      if (folder.title === options.notebookName) {
+        foundFolder = folder;
+        break;
+      }
+    }
+    
+    if (foundFolder) {
+      notebookId = foundFolder.id;
+      console.log(`Found existing notebook with ID: ${notebookId}`);
+    } else {
+      // Create a new notebook if it doesn't exist
+      console.log(`Creating notebook: ${options.notebookName}`);
+      const response = await joplin.post(['folders'], null, { title: options.notebookName });
+      console.log(`Notebook creation response:`, response);
+      if (response && response.id) {
+        notebookId = response.id;
+        console.log(`Created notebook with ID: ${notebookId}`);
+      }
     }
   }
   
@@ -472,12 +492,42 @@ export async function exportToJoplin(
           // Add tags
           for (const tag of tags) {
             try {
-              console.log(`Creating tag: ${tag}`);
-              await joplin.post(['tags'], null, { title: tag });
-              console.log(`Adding tag ${tag} to note ${response.id}`);
-              await joplin.post(['notes', response.id, 'tags'], null, { title: tag });
+              // Create or get the tag first
+              console.log(`Creating/getting tag: ${tag}`);
+              let tagResponse;
+              try {
+                // Try to create the tag (will fail if it already exists)
+                tagResponse = await joplin.post(['tags'], null, { title: tag });
+                console.log(`Created tag: ${tag}`, tagResponse);
+              } catch (createError) {
+                // If creation fails, try to find the tag
+                console.log(`Tag creation failed, searching for tag: ${tag}`);
+                const searchResponse = await joplin.get(['search'], { query: tag, type: 'tag' });
+                
+                if (searchResponse && searchResponse.items && searchResponse.items.length > 0) {
+                  // Find the exact tag match
+                  for (const item of searchResponse.items) {
+                    if (item.title === tag) {
+                      tagResponse = item;
+                      console.log(`Found existing tag: ${tag}`, tagResponse);
+                      break;
+                    }
+                  }
+                }
+                
+                if (!tagResponse) {
+                  console.error(`Could not find or create tag: ${tag}`);
+                  continue;
+                }
+              }
+              
+              // Now link the tag to the note
+              if (tagResponse && tagResponse.id) {
+                console.log(`Linking tag ${tag} (${tagResponse.id}) to note ${response.id}`);
+                await joplin.post(['tags', tagResponse.id, 'notes'], null, { id: response.id });
+              }
             } catch (tagError) {
-              console.error(`Error adding tag ${tag}:`, tagError);
+              console.error(`Error handling tag ${tag}:`, tagError);
               // Continue with other tags even if one fails
             }
           }
