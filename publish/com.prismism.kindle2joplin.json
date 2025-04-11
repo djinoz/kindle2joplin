@@ -8,6 +8,17 @@
 	"author": "David Jones",
 	"homepage_url": "https://github.com/djinoz/kindle2joplin",
 	"repository_url": "https://github.com/djinoz/kindle2joplin",
-	"keywords": ["kindle", "highlights", "import", "books", "notes", "joplin"],
-	"categories": ["productivity"]
+	"keywords": [
+		"kindle",
+		"highlights",
+		"import",
+		"books",
+		"notes",
+		"joplin"
+	],
+	"categories": [
+		"productivity"
+	],
+	"_publish_hash": "sha256:787bcd722a393c7c983e3ddeb6277fbd8c831f4cebeaaec6553f6469bd1430e2",
+	"_publish_commit": "main:327d2b22cb7a8d48806d72aa888dabe6e5413572"
 }

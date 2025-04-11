@@ -5,10 +5,9 @@ A Joplin plugin that imports highlights and notes from your Kindle device direct
 ## Features
 
 - Import highlights and notes directly from Kindle's "My Clippings.txt" file
-- Organize highlights with one note per book
+- Organize highlights with one Joplin note per Kindle book
 - Select which books to import with a user-friendly interface
 - Avoid duplicates when importing multiple times or from synced Kindles
-- Group highlights by book location for easy reference
 - Preserve important metadata (page numbers, locations, timestamps)
 - Add tags automatically (book, kindle, author)
 - Select target notebook from a dropdown of existing notebooks
@@ -18,13 +17,13 @@ A Joplin plugin that imports highlights and notes from your Kindle device direct
 ## Hold on, why are you importing from a text file?
 
 There is an excellent way to view your highlights on the web using https://read.amazon.com/notebook. But it has some problems:
-1. Your highlights aren't yours. Amazon could rug-pull you anytime they like
+1. Your highlights aren't yours. Amazon could rug-pull you anytime they like.
 2. It only works for Amazon purchased books.
 3. By implication of #2 people who use "Send to Kindle" do not get their highlights and notes anywhere but on the text file. I personally send (HEAPS of) web pages and PDFs to Kindle so this is a key part of my workflow.
 
 ## Installation
 
-1. Download the latest release from the [Releases page](https://github.com/yourusername/joplin-kindle-plugin/releases)
+1. Download the latest .jpl from the https://github.com/djinoz/kindle2joplin/publish
 2. Open Joplin
 3. Go to Tools → Options → Plugins
 4. Click "Install from file" and select the downloaded .jpl file
@@ -35,27 +34,27 @@ There is an excellent way to view your highlights on the web using https://read.
 1. Connect your Kindle device to your computer via USB
 2. In Joplin, go to Tools → Import Kindle Highlights
 3. Use the file picker to navigate to your Kindle device and select "My Clippings.txt"
-   - This is typically found in the root directory of your Kindle
+   - This may be found in the root or documents(?) directory of your Kindle
 4. In the import dialog:
    - Select a target notebook from the dropdown menu
-   - Choose whether to add author tags
-   - Select any additional tags you want to apply to all imported notes
+   - Choose whether to add author tags (in hindsight, I think this might pollute Joplin's tags YMMV)
    - Use the "Select All Tags" or "Select None Tags" buttons to quickly select or deselect all tags
-   - Select which books you want to import from the list (all books are selected by default)
+   - Select any additional tags you want to apply to all imported notes
    - Use the "Select All" or "Select None" buttons to quickly select or deselect all books
+   - Select which books you want to import from the list (all books are selected by default)
 5. Click "Import Selected" to start the import process
 6. A progress dialog will show the import status
 7. When complete, click "Close" to finish
 
 ## TODO
 
-1. Merge/Diff: Currently subsequent imports may overwrite the note (if it goes into the same notebook). I am not convinced the "Duplicate Avoidance Strategy" section is entirely true, it needs more testing **WARNING**. The approach may be fine if:
+1. Merge/Diff: Currently subsequent imports may overwrite the note (if it goes into the same notebook). **WARNING** I am not convinced the "Duplicate Avoidance Strategy" section is entirely true, it needs more testing. The approach may be fine if:
   - the note (title, content, tags, anything) hasn't been updated in Joplin. 
   - you are only using one kindle
   - you are only importing from the text file and not also importing from https://read.amazon.com/notebook
   - So having deltas and merge may be interesting but a bit of an edge case.
-2. Some occassional fails on the author tag. Needs investigating
-3. Consider importing from https://read.amazon.com/notebook (with consideration to the points above) 
+2. Some occassional fails on the author tag. Needs investigating...
+3. Maybe implement importing from https://read.amazon.com/notebook (with consideration to the points above) 
 
 ### Project Structure
 
@@ -164,7 +163,7 @@ interface ExportOptions {
 
 ### Duplicate Avoidance Strategy
 
-The plugin uses a robust strategy to avoid duplicate entries:
+The plugin uses a strategy to avoid duplicate entries:
 
 1. Each clipping gets a unique hash based on book title, location and content
 2. These hashes are stored as HTML comments in notes: `<!-- kindle-hash: HASH -->`
@@ -172,7 +171,7 @@ The plugin uses a robust strategy to avoid duplicate entries:
 4. Only new clippings (with unique hashes) are added to existing notes
 5. Notes are merged intelligently, maintaining proper location-based organization
 
-This ensures that even when importing from different Kindle devices that share the same account (and thus have overlapping highlights), each highlight appears only once in your Joplin notes.
+This attempts to address that even when importing from different Kindle devices that share the same account (and thus have overlapping highlights), each highlight appears only once in your Joplin notes.
 
 ### Note Format
 
@@ -295,4 +294,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Acknowledgements
 
 - The Joplin team for creating an amazing note-taking application
+- Cline and Claude 3.7 (who did the bulk of the work)
 - All contributors and testers who helped improve this plugin
