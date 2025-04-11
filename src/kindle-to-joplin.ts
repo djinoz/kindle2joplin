@@ -58,6 +58,7 @@ export interface ExportOptions {
   notebookName?: string;
   skipDuplicates: boolean;
   tagWithAuthor: boolean;
+  additionalTags?: string[];
   outputDir?: string;
   progressCallback?: (current: number, total: number, bookTitle: string) => Promise<void>;
 }
@@ -429,6 +430,12 @@ export async function exportToJoplin(
       tags.push(`author:${book.author}`);
     }
     
+    // We'll handle additional tags separately since we already have their IDs
+    const additionalTagIds = options.additionalTags || [];
+    if (additionalTagIds.length > 0) {
+      console.log(`Adding ${additionalTagIds.length} additional tags`);
+    }
+    
     // Check for existing note to avoid duplicates
     let existingNote = null;
     if (options.skipDuplicates) {
@@ -462,6 +469,16 @@ export async function exportToJoplin(
       });
       
       console.log(`Updated existing note: ${noteTitle} with ${newClippings.length} new clippings`);
+      
+      // Add additional tags to existing note
+      for (const tagId of additionalTagIds) {
+        try {
+          console.log(`Linking additional tag ID ${tagId} to existing note ${existingNote.id}`);
+          await joplin.post(['tags', tagId, 'notes'], null, { id: existingNote.id });
+        } catch (tagError) {
+          console.error(`Error linking additional tag ${tagId} to note:`, tagError);
+        }
+      }
     } else {
       // Create new note content with hash metadata for future duplicate detection
       const baseContent = createMarkdownNote(book);
@@ -529,6 +546,16 @@ export async function exportToJoplin(
             } catch (tagError) {
               console.error(`Error handling tag ${tag}:`, tagError);
               // Continue with other tags even if one fails
+            }
+          }
+          
+          // Add additional tags to the new note
+          for (const tagId of additionalTagIds) {
+            try {
+              console.log(`Linking additional tag ID ${tagId} to new note ${response.id}`);
+              await joplin.post(['tags', tagId, 'notes'], null, { id: response.id });
+            } catch (tagError) {
+              console.error(`Error linking additional tag ${tagId} to note:`, tagError);
             }
           }
           

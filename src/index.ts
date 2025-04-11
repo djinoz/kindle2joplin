@@ -15,6 +15,24 @@ joplin.plugins.register({
       iconName: "fas fa-book"
     });
 
+    // Fetch all notebooks for the dropdown
+    const folders = await joplin.data.get(['folders']);
+    const notebookOptions: Record<string, string> = {};
+    
+    // Add notebooks to options
+    for (const folder of folders.items) {
+      notebookOptions[folder.id] = folder.title;
+    }
+
+    // Fetch all tags for the multi-select
+    const tags = await joplin.data.get(['tags']);
+    const tagOptions: Record<string, string> = {};
+    
+    // Add tags to options
+    for (const tag of tags.items) {
+      tagOptions[tag.id] = tag.title;
+    }
+
     await joplin.settings.registerSettings({
       "lastClippingsPath": {
         value: "",
@@ -23,12 +41,14 @@ joplin.plugins.register({
         public: false,
         label: "Last used clippings path"
       },
-      "notebookName": {
-        value: "Kindle Books",
+      "notebookId": {
+        value: "",
         type: SettingItemType.String,
         section: "kindleImport",
         public: true,
-        label: "Default notebook for imported notes"
+        label: "Default notebook for imported notes",
+        isEnum: true,
+        options: notebookOptions
       },
       "tagWithAuthor": {
         value: true,
@@ -36,6 +56,14 @@ joplin.plugins.register({
         section: "kindleImport",
         public: true,
         label: "Add author tags to notes"
+      },
+      "additionalTags": {
+        value: [],
+        type: SettingItemType.Array,
+        section: "kindleImport",
+        public: false, // Changed to false since we'll manage this through the import dialog
+        label: "Additional tags to add to imported notes",
+        description: "This setting stores the selected tags but is managed through the import dialog"
       }
     });
 
@@ -120,11 +148,61 @@ joplin.plugins.register({
             index++;
           }
           
+          // Get settings values for the form
+          const selectedNotebookId = await joplin.settings.value('notebookId');
+          const tagWithAuthorValue = await joplin.settings.value('tagWithAuthor');
+          const selectedTags = await joplin.settings.value('additionalTags') || [];
+          
+          // Create notebook options HTML
+          const notebookOptionsHtml = Object.entries(notebookOptions).map(([id, title]) => 
+            `<option value="${id}" ${id === selectedNotebookId ? 'selected' : ''}>${title}</option>`
+          ).join('');
+          
+          // Create tag options HTML
+          const tagOptionsHtml = Object.entries(tagOptions).map(([id, title]) => `
+            <div class="tag-item">
+              <label>
+                <input type="checkbox" name="tag-${id}" value="${id}" ${selectedTags.includes(id) ? 'checked' : ''}>
+                ${title}
+              </label>
+            </div>
+          `).join('');
+          
           // Set the HTML content with a proper form
           await joplin.views.dialogs.setHtml(bookSelectionHandle, `
             <form id="book-selection-form">
               <div id="book-selection">
-                <h1>Select Books to Import</h1>
+                <h1>Import Kindle Highlights</h1>
+                
+                <div style="margin-top: 20px;">
+                  <label>
+                    Import to notebook:
+                    <select name="notebookId">
+                      <option value="">-- Select a notebook --</option>
+                      ${notebookOptionsHtml}
+                    </select>
+                  </label>
+                </div>
+                
+                <div style="margin-top: 10px;">
+                  <label>
+                    <input type="checkbox" name="tagWithAuthor" ${tagWithAuthorValue ? 'checked' : ''}>
+                    Add author tags
+                  </label>
+                </div>
+                
+                <div style="margin-top: 10px; margin-bottom: 20px;">
+                  <label>Additional tags:</label>
+                  <div style="margin-top: 5px; margin-bottom: 5px;">
+                    <button id="select-all-tags" type="button" class="tag-button">Select All Tags</button>
+                    <button id="select-none-tags" type="button" class="tag-button">Select None Tags</button>
+                  </div>
+                  <div class="tag-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; margin-top: 5px;">
+                    ${tagOptionsHtml}
+                  </div>
+                </div>
+                
+                <h2>Select Books to Import</h2>
                 <p>Choose which books you want to import from the ${books.size} books found in your clippings file.</p>
                 
                 <div class="actions">
@@ -134,20 +212,6 @@ joplin.plugins.register({
                 
                 <div class="book-list">
                   ${bookListHtml}
-                </div>
-                
-                <div style="margin-top: 20px;">
-                  <label>
-                    Import to notebook:
-                    <input type="text" name="notebookName" value="${await joplin.settings.value('notebookName')}">
-                  </label>
-                </div>
-                
-                <div style="margin-top: 10px;">
-                  <label>
-                    <input type="checkbox" name="tagWithAuthor" ${await joplin.settings.value('tagWithAuthor') ? 'checked' : ''}>
-                    Add author tags
-                  </label>
                 </div>
               </div>
             </form>
@@ -209,15 +273,28 @@ joplin.plugins.register({
             return;
           }
           
-          // Save the notebook name setting
-          const notebookName = formData.notebookName || bookSelectionResult.formData.notebookName;
-          await joplin.settings.setValue('notebookName', notebookName);
-          console.info("Saved notebook name:", notebookName);
+          // Save the notebook ID setting
+          const notebookId = formData.notebookId || bookSelectionResult.formData.notebookId;
+          await joplin.settings.setValue('notebookId', notebookId);
+          console.info("Saved notebook ID:", notebookId);
           
           // Save the tag with author setting
           const tagWithAuthor = !!formData.tagWithAuthor || !!bookSelectionResult.formData.tagWithAuthor;
           await joplin.settings.setValue('tagWithAuthor', tagWithAuthor);
           console.info("Saved tag with author setting:", tagWithAuthor);
+          
+          // Process selected tags
+          const selectedTagIds: string[] = [];
+          for (const key in formData) {
+            if (key.startsWith('tag-') && (formData[key] === 'true' || formData[key] === true || formData[key] === '1')) {
+              const tagId = key.substring(4); // Remove 'tag-' prefix
+              selectedTagIds.push(tagId);
+            }
+          }
+          
+          // Save selected tags
+          await joplin.settings.setValue('additionalTags', selectedTagIds);
+          console.info("Saved selected tags:", selectedTagIds);
           
           // 5. Show progress dialog with a unique ID
           const progressHandle = await joplin.views.dialogs.create(`importProgressDialog-${uniqueId}`);
@@ -256,11 +333,21 @@ joplin.plugins.register({
               `);
             };
             
+            // Get notebook name if needed (for backward compatibility)
+            let notebookName;
+            if (!notebookId && formData.notebookName) {
+              notebookName = formData.notebookName;
+              await joplin.settings.setValue('notebookName', notebookName);
+              console.info("Saved notebook name:", notebookName);
+            }
+            
             // Create the export options
             const exportOptions: ExportOptions = {
+              notebookId,
               notebookName,
               skipDuplicates: true,
               tagWithAuthor,
+              additionalTags: selectedTagIds,
               progressCallback
             };
             

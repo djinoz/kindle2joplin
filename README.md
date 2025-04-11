@@ -11,7 +11,16 @@ A Joplin plugin that imports highlights and notes from your Kindle device direct
 - Group highlights by book location for easy reference
 - Preserve important metadata (page numbers, locations, timestamps)
 - Add tags automatically (book, kindle, author)
-- Select target notebook for importing
+- Select target notebook from a dropdown of existing notebooks
+- Add additional tags to imported notes from a multi-select checklist
+- User-friendly import dialog with settings at the top for easy access
+
+## Hold on, why are you importing from a text file?
+
+There is an excellent way to view your highlights on the web using https://read.amazon.com/notebook. But it has some problems:
+1. Your highlights aren't yours. Amazon could rug-pull you anytime they like
+2. It only works for Amazon purchased books.
+3. By implication of #2 people who use "Send to Kindle" do not get their highlights and notes anywhere but on the text file. I personally send (HEAPS of) web pages and PDFs to Kindle so this is a key part of my workflow.
 
 ## Installation
 
@@ -27,13 +36,26 @@ A Joplin plugin that imports highlights and notes from your Kindle device direct
 2. In Joplin, go to Tools → Import Kindle Highlights
 3. Use the file picker to navigate to your Kindle device and select "My Clippings.txt"
    - This is typically found in the root directory of your Kindle
-4. Select which books you want to import from the list
-5. Choose which notebook to import the notes into
-6. Click "Import" and wait for the process to complete
+4. In the import dialog:
+   - Select a target notebook from the dropdown menu
+   - Choose whether to add author tags
+   - Select any additional tags you want to apply to all imported notes
+   - Use the "Select All Tags" or "Select None Tags" buttons to quickly select or deselect all tags
+   - Select which books you want to import from the list (all books are selected by default)
+   - Use the "Select All" or "Select None" buttons to quickly select or deselect all books
+5. Click "Import Selected" to start the import process
+6. A progress dialog will show the import status
+7. When complete, click "Close" to finish
 
-## Developer Documentation
+## TODO
 
-This section serves as specification for developers who want to build, maintain or extend this plugin.
+1. Merge/Diff: Currently subsequent imports may overwrite the note (if it goes into the same notebook). I am not convinced the "Duplicate Avoidance Strategy" section is entirely true, it needs more testing **WARNING**. The approach may be fine if:
+  - the note (title, content, tags, anything) hasn't been updated in Joplin. 
+  - you are only using one kindle
+  - you are only importing from the text file and not also importing from https://read.amazon.com/notebook
+  - So having deltas and merge may be interesting but a bit of an edge case.
+2. Some occassional fails on the author tag. Needs investigating
+3. Consider importing from https://read.amazon.com/notebook (with consideration to the points above) 
 
 ### Project Structure
 
@@ -72,14 +94,22 @@ Key parsing logic:
 - The remaining content is the actual highlight or note
 - Create a unique hash for each entry to detect duplicates
 
-#### 2. Book Selection Dialog
+#### 2. Import Dialog
 
-This component allows users to select which books to import:
-- Shows a list of all books found in the clippings file
-- Each book has a checkbox to select/deselect
-- Shows book title, author, and number of highlights
-- "Select All" and "Select None" buttons for convenience
-- Returns a list of selected books to the main process
+This component allows users to configure import settings and select which books to import:
+- **Notebook Selection**:
+  - Dropdown menu populated with all notebooks from Joplin
+  - Allows selecting the target notebook for imported notes
+- **Tag Options**:
+  - Checkbox to enable/disable author tags
+  - Multi-select checklist of all tags from Joplin
+  - "Select All Tags" and "Select None Tags" buttons for convenience
+- **Book Selection**:
+  - Shows a list of all books found in the clippings file
+  - Each book has a checkbox to select/deselect
+  - Shows book title, author, and number of highlights
+  - "Select All" and "Select None" buttons for convenience
+- Returns the selected books, notebook, and tags to the main process
 
 #### 3. Import Engine
 
@@ -126,6 +156,7 @@ interface ExportOptions {
   notebookName?: string;      // Target notebook name (if ID not provided)
   skipDuplicates: boolean;    // Whether to skip duplicate entries
   tagWithAuthor: boolean;     // Whether to add author tags
+  additionalTags?: string[];  // Additional tags to add to all notes
   outputDir?: string;         // For standalone operation
   progressCallback?: (current: number, total: number, bookTitle: string) => Promise<void>;
 }
@@ -170,10 +201,16 @@ The hash comments at the end are hidden in Joplin's rendered view but allow the 
 
 The plugin integrates with Joplin's plugin API:
 
-1. Using Joplin's dialog API for file picking and book selection
-2. Using Joplin's data API to create and update notes
-3. Using Joplin's settings API to store preferences
-4. Registering commands, menu items, and toolbar buttons
+1. Using Joplin's dialog API for file picking and import configuration
+2. Using Joplin's data API to:
+   - Create and update notes
+   - Fetch all notebooks for the dropdown selection
+   - Fetch all tags for the multi-select checklist
+   - Apply tags to imported notes
+3. Using Joplin's settings API to:
+   - Store user preferences (notebook ID, author tags, additional tags)
+   - Restore previous selections when reopening the import dialog
+4. Registering commands, menu items, and toolbar buttons for easy access
 
 ### Testing Strategy
 
@@ -190,9 +227,13 @@ When developing or testing changes to this plugin, follow these steps:
    - Import from different clippings files with overlapping content
 
 3. **UI Testing**:
-   - Verify book selection dialog shows all books correctly
-   - Test select all/none functionality
-   - Verify progress reporting works correctly
+   - Verify import dialog shows all books correctly
+   - Test book selection with select all/none functionality
+   - Verify notebook dropdown shows all notebooks correctly
+   - Test tag selection with select all/none functionality
+   - Verify selected settings are saved and restored between sessions
+   - Test with a large number of books and tags to ensure UI remains usable
+   - Verify progress reporting works correctly during import
 
 4. **Performance Testing**:
    - Test with large clippings files (100+ books, 1000+ highlights)
@@ -210,13 +251,13 @@ When developing or testing changes to this plugin, follow these steps:
 
 - Node.js 14+
 - npm or yarn
-- Joplin (for testing)
+- Joplin (for testing and using)
 
 ### Build Steps
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/joplin-kindle-plugin.git
+   git clone https://github.com/djinoz/kindle2joplin
    cd joplin-kindle-plugin
    ```
 
@@ -227,22 +268,19 @@ When developing or testing changes to this plugin, follow these steps:
 
 3. Build the plugin:
    ```
-   npm run build
+   npm run dist
    ```
 
 4. The compiled plugin will be available in the `dist` folder
 
 ### Development Mode
 
-For development, you can use the watch mode to automatically rebuild when files change:
+In Joplin plugins, under "Show Advanced Settings", you can add multiple plugin paths, each separated by a comma. You will need to restart the application for the changes to take effect. Set it to the root of your project (NOT publish or dist)
 
-```
-npm run start
-```
 
 ## License
 
-This plugin is released under the MIT License. See the LICENSE file for details.
+This plugin is released under the MIT License. See [LICENSE file for details.](https://opensource.org/license/mit)
 
 ## Contributing
 

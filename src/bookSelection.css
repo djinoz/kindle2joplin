@@ -13,7 +13,7 @@
   gap: 10px;
 }
 
-.actions button {
+.actions button, .tag-button {
   padding: 8px 16px;
   background-color: #f0f0f0;
   border: 1px solid #ccc;
@@ -22,8 +22,14 @@
   font-weight: bold;
 }
 
-.actions button:hover {
+.actions button:hover, .tag-button:hover {
   background-color: #e0e0e0;
+}
+
+.tag-button {
+  margin-right: 5px;
+  font-size: 12px;
+  padding: 5px 10px;
 }
 
 .book-list {
@@ -75,9 +81,55 @@
   white-space: nowrap;
 }
 
+/* Notebook dropdown styles */
+select[name="notebookId"] {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: #f5f5f5;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+select[name="notebookId"]:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Tag list styles */
+.tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 20px;
+}
+
+.tag-item {
+  padding: 6px;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+}
+
+.tag-item:hover {
+  background-color: #e8e8e8;
+}
+
+.tag-item label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  width: 100%;
+}
+
+.tag-item input[type="checkbox"] {
+  margin-right: 8px;
+}
+
 /* Progress dialog */
 #import-progress {
   padding: 30px;
   text-align: center;
 }
-
